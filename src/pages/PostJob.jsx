@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { postJob } from '../lib/supabase'
 import Header from '../components/Header'
 
-const JOB_TYPES = ['Electrical', 'Plumbing', 'Renovation', 'Carpentry', 'Painting', 'AC Service', 'Welding', 'Other']
+const JOB_TYPES = ['Listrik', 'Pipa / Ledeng', 'Renovasi', 'Tukang Kayu', 'Pengecatan', 'Servis AC', 'Las', 'Lainnya']
 
 export default function PostJob({ user }) {
   const navigate = useNavigate()
