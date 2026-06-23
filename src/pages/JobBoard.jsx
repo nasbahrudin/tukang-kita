@@ -34,7 +34,26 @@ export default function JobBoard({ user }) {
         {loading ? (
           <p>Loading...</p>
         ) : jobs.length === 0 ? (
-          <p>Tidak ada pekerjaan tersedia saat ini</p>
+          <div style={{
+            textAlign: 'center', padding: '48px 20px', marginTop: '16px',
+            background: 'white', border: '1px solid #eee', borderRadius: '10px'
+          }}>
+            <div style={{
+              width: '60px', height: '60px', borderRadius: '50%',
+              background: 'var(--brand-tint)', display: 'flex',
+              alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
+              fontSize: '28px'
+            }}>
+              📭
+            </div>
+            <h3 style={{ margin: '0 0 6px', fontSize: '16px' }}>Belum ada pekerjaan tersedia</h3>
+            <p style={{ color: '#777', fontSize: '14px', marginBottom: '20px', lineHeight: 1.5 }}>
+              Saat ini belum ada pekerjaan di Loker. Cek lagi nanti ya — pekerjaan baru akan muncul di sini.
+            </p>
+            <button className="btn btn-gray" onClick={() => navigate('/dashboard')}>
+              Kembali ke Dashboard
+            </button>
+          </div>
         ) : (
           <div>
             {jobs.map(job => (
@@ -43,9 +62,11 @@ export default function JobBoard({ user }) {
           </div>
         )}
 
-        <button className="btn btn-gray" onClick={() => navigate('/dashboard')} style={{ marginTop: '20px' }}>
-          Kembali ke Dashboard
-        </button>
+        {jobs.length > 0 && (
+          <button className="btn btn-gray" onClick={() => navigate('/dashboard')} style={{ marginTop: '20px' }}>
+            Kembali ke Dashboard
+          </button>
+        )}
       </div>
     </div>
   )
