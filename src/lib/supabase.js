@@ -138,99 +138,74 @@ export const getAvailableJobs = async () => {
   }
 }
 
-# Tukang Kita — Fly-By Thoughts (Master Idea Log)
+export const acceptJob = async (bookingId, tukangId) => {
+  try {
+    // 1. How many tukang does this job need?
+    const { data: booking, error: bookingError } = await supabase
+      .from('bookings')
+      .select('tukang_needed, status')
+      .eq('id', bookingId)
+      .single()
 
-_A running log of day-to-day ideas, captured so nothing gets lost. Consolidated from three earlier notes on 23 June 2026. Newest strategic thinking is in the Strategy Note at the bottom._
+    if (bookingError) throw bookingError
 
-_Guiding philosophy throughout: launch fast, validate demand early, avoid over-engineering, build lean first and optimize later. Batam-first; Indonesia-first; trust + community presence + grassroots growth._
+    const tukangNeeded = booking.tukang_needed || 1
 
----
+    // 2. Who has already accepted this job?
+    const { data: existing, error: existingError } = await supabase
+      .from('job_assignments')
+      .select('tukang_id')
+      .eq('booking_id', bookingId)
 
-## PRODUCT / FEATURE IDEAS
+    if (existingError) throw existingError
 
-### 1. Tukang Upskilling Ecosystem
-A learning/upskilling section where tukang can learn new trades, access simple practical courses/tutorials, build skill credibility over time, and potentially unlock higher-paying jobs.
-Long-term: certification badges, skill rankings, sponsored training partnerships.
+    const currentCount = existing?.length || 0
 
-### 4. Expand Job Categories
-Near-term new vertical: **pest control** (high recurring demand, fits homeowner pain points, easy to slot into the existing model).
-Future adjacent categories: cleaning, home disinfection, gardening, moving services, small renovations.
+    // Guard: this tukang already accepted this job
+    if (existing?.some(a => a.tukang_id === tukangId)) {
+      return { success: false, error: 'Kamu sudah menerima pekerjaan ini.' }
+    }
 
-### 5. Anti-Scammer / Fake Customer Verification
-Partner or integrate with Getcontact (or similar) to identify suspicious users. Goal: reduce fake job postings, time-wasters, scams, and unsafe situations for tukang.
-Possible tools: phone reputation scoring, risk indicators, verified-customer badges, internal blacklist, tukang reporting system.
-Long-term vision: become trust infrastructure for Indonesia's informal service economy.
+    // Guard: job is already full
+    if (currentCount >= tukangNeeded) {
+      return { success: false, error: 'Pekerjaan ini sudah penuh.' }
+    }
 
-### 6. Donation / "Donate a Task" Feature (Social Good)
-A "Donate" section where the public can fund help for people in need — turning the marketplace into a force for community good, not just commerce. Promote via TikTok with a clear "Donate" button.
-Who it helps: elderly people needing help with anything, single parents, single mothers; or "Donate a Task" — sponsor a task for someone who can't afford it.
-Why it matters: builds goodwill/trust, strong shareable TikTok narrative, differentiates as community-first, blends with the 0%-commission merakyat positioning.
-Open questions: how funds are held/disbursed (escrow? direct to tukang?); how recipients are verified as genuinely in need; whether donors pick a specific person/task or give to a pool; tax/legal side of collecting public donations in Indonesia.
+    // 3. Insert this tukang's assignment with the next sequence number
+    const { data: assignment, error: assignError } = await supabase
+      .from('job_assignments')
+      .insert({
+        booking_id: bookingId,
+        tukang_id: tukangId,
+        sequence: currentCount + 1,
+        accepted_at: new Date().toISOString(),
+      })
+      .select()
 
----
+    if (assignError) throw assignError
 
-## MARKETING / GROWTH IDEAS
+    // 4. Only close the job when slots are now full
+    const newCount = currentCount + 1
+    if (newCount >= tukangNeeded) {
+      const { error: updateError } = await supabase
+        .from('bookings')
+        .update({ status: 'accepted' })
+        .eq('id', bookingId)
 
-### 2. Grassroots Marketing via Cultural Events
-Use local community and cultural events as hyperlocal marketing channels — e.g. sponsor Kuda Lumping events, banners/flyers around event areas, SPGs/promoters educating people about the app. Focus on kampung/community penetration before expensive digital ads. Core idea: build familiarity and trust among blue-collar communities first.
+      if (updateError) throw updateError
+    }
 
-### 3. Community Goodwill Projects
-Community-driven initiatives like crowdfunded pothole repairs or small infrastructure fixes. Purpose: build public goodwill, position the platform as community-oriented, generate viral/local-media attention, show fast action where government is slow.
-Could evolve into: a "Lapor Kerusakan" feature, community voting, sponsored repairs by local businesses.
-
----
-
-## OVERALL STRATEGIC DIRECTION
-
-The vision is bigger than a simple handyman marketplace. Core direction: a hyperlocal service ecosystem and community-trusted infrastructure; a blue-collar empowerment platform; Indonesia-first operations; low-friction MVP first, scale later.
-Key themes: trust, community presence, operational simplicity, grassroots growth, real-world problem solving.
-Context: initial launch focus is Batam; long-term scaling possible to Bandung and other cities; designed around homeowner ↔ tukang matching.
-_(Historical note: originally built in Glide; since migrated to a coded stack — React + Vite + Supabase + Vercel.)_
-
----
-
-═══════════════════════════════════════════════════
-## 7. STRATEGY NOTE — Survey-First Flow, Multi-Tukang & Materials Marketplace
-_(captured 23 June 2026)_
-═══════════════════════════════════════════════════
-
-**THE BIG REALIZATION:**
-A job is often NOT fully defined when posted. Many real jobs (ceiling repair, renovation, leaks) need a physical site visit before anyone knows scope, number of tukang, materials, or price. This breaks the current assumption that "a posted job = a complete, quotable job." This single insight ripples into everything below, so it's foundational — not a side feature.
-
-**A) SURVEY-FIRST / ON-SITE ASSESSMENT FLOW**
-- Some jobs need a tukang to come look BEFORE the job is scoped/priced.
-- Possible flow: customer posts → tukang does a survey visit → tukang defines scope (hands needed, materials, time, price) → job becomes a real, priced job → work proceeds.
-- Affects pricing AND payments: you can't escrow a price you don't know yet. So this must be settled BEFORE Midtrans/payment design.
-
-**B) MULTI-TUKANG** (originally a standalone topic — now seen as downstream of A)
-- A customer (e.g. an elderly lady) usually CAN'T judge if a job needs 1 or 2 tukang. Don't ask her at posting time.
-- Best judge = the tukang physically on site.
-- Preferred design: default every job to 1 tukang; a tukang already on the job can request "butuh tukang tambahan" (backup), which reopens the job for a second tukang. This = the survey insight in miniature.
-- DB foundation already partly exists: job_assignments table + sequence field.
-- Build in 2 stages when ready:
-  - Stage 1 (contained): DB column for tukang_needed + slot-counting so a job only closes when full. Default 1 = nothing changes for normal jobs.
-  - Stage 2 (needs care): the "request backup mid-job" trigger + reopening.
-
-**C) EMERGENCY / CAN'T-COMPLETE** (separate problem — a REPLACEMENT, not an addition)
-- A tukang or customer can't continue midway (emergency, multi-day job).
-- This is cancellation/replacement logic, NOT "more hands." Design it deliberately on its own later.
-
-**D) MATERIALS MARKETPLACE** (the "all-in-one app" vision)
-- App also sells the materials a job needs (cement, pipes, paint, etc).
-- Powerful, but arguably a SECOND business (inventory, suppliers, delivery, margins) bolted onto the first. Phase 4-type expansion.
-- EARN it after the core help-matching loop has real users. Building it now = the over-engineering trap (same reason Midtrans is paused).
-
-**E) DISINTERMEDIATION** (keeping tukang + customer ON the app for repeat jobs)
-- Every marketplace fights this; you can't fully stop offline deals.
-- Win by making the app MORE attractive than going around it: rebooking ("rebook Pak Budi"), on-platform ratings/reputation, payment protection (escrow), dispute support, loyalty perks for repeat on-app bookings.
-- Carrots, not sticks. Heavy-handed blocking backfires early.
-
-**THE KEY QUESTION TO SETTLE FIRST** (when fresh, not mid-build):
-_"Is Tukang Kita a quick-help app, or a survey → quote → fulfil app with a materials store?"_
-
-And before building any of the above:
-_"What's the SMALLEST version worth validating with real Batam users first?"_
-Current instinct: it's still the simple help-matching loop that already exists. Get real tukang + customers using it, and let THEM reveal whether surveys and materials are needed — rather than guessing now.
+    return {
+      success: true,
+      assignment: assignment[0],
+      slotsFilled: newCount,
+      slotsTotal: tukangNeeded,
+      jobFull: newCount >= tukangNeeded,
+    }
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+}
 
 export const createDeliveryOrder = async (bookingId) => {
   try {
