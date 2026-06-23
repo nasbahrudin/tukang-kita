@@ -12,6 +12,8 @@ export default function MyJobs({ user }) {
   const [showDeliveryOrder, setShowDeliveryOrder] = useState(null)
   const [showRatingForm, setShowRatingForm] = useState(null)
 
+  const isCustomer = user?.role === 'customer'
+
   useEffect(() => {
     loadMyJobs()
   }, [])
@@ -59,12 +61,38 @@ export default function MyJobs({ user }) {
     <div>
       <Header user={user} onLogout={() => navigate('/login')} />
       <div className="container" style={{ marginTop: '40px' }}>
-        <h2>{user?.role === 'customer' ? 'Pekerjaan Saya (Pelanggan)' : 'Pekerjaan Saya (Tukang)'}</h2>
+        <h2>{isCustomer ? 'Bantuan Saya' : 'Pekerjaan Saya'}</h2>
 
         {loading ? (
           <p>Loading...</p>
         ) : jobs.length === 0 ? (
-          <p>Tidak ada pekerjaan</p>
+          <div style={{
+            textAlign: 'center', padding: '48px 20px', marginTop: '16px',
+            background: 'white', border: '1px solid #eee', borderRadius: '10px'
+          }}>
+            <div style={{
+              width: '60px', height: '60px', borderRadius: '50%',
+              background: 'var(--brand-tint)', display: 'flex',
+              alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
+              fontSize: '28px'
+            }}>
+              {isCustomer ? '📋' : '🔧'}
+            </div>
+            <h3 style={{ margin: '0 0 6px', fontSize: '16px' }}>
+              {isCustomer ? 'Belum ada bantuan' : 'Belum ada pekerjaan'}
+            </h3>
+            <p style={{ color: '#777', fontSize: '14px', marginBottom: '20px', lineHeight: 1.5 }}>
+              {isCustomer
+                ? 'Kamu belum membuat permintaan bantuan. Yuk, buat yang pertama!'
+                : 'Kamu belum menerima pekerjaan. Cek Loker untuk cari pekerjaan!'}
+            </p>
+            <button
+              className="btn btn-primary"
+              onClick={() => navigate(isCustomer ? '/post-job' : '/loker')}
+            >
+              {isCustomer ? 'Minta Bantuan Baru' : 'Cari Pekerjaan (Loker)'}
+            </button>
+          </div>
         ) : (
           <div>
             {jobs.map(job => (
@@ -80,7 +108,7 @@ export default function MyJobs({ user }) {
                   <div style={{ textAlign: 'right' }}>
                     <span style={{
                       display: 'inline-block', padding: '6px 12px',
-                      backgroundColor: job.status === 'completed' ? '#1D9E75' : '#D85A30',
+                      backgroundColor: job.status === 'completed' ? 'var(--brand)' : '#D85A30',
                       color: 'white', borderRadius: '20px', fontSize: '12px', fontWeight: '500'
                     }}>
                       {job.status === 'available' ? 'Available' :
