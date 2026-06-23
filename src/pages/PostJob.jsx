@@ -25,7 +25,7 @@ export default function PostJob({ user }) {
     )
 
     if (success) {
-      alert('Pekerjaan berhasil diposting!')
+      alert('Permintaan bantuan berhasil diposting!')
       navigate('/my-jobs')
     } else {
       setError(postError || 'Posting gagal')
@@ -38,14 +38,14 @@ export default function PostJob({ user }) {
     <div>
       <Header user={user} onLogout={() => navigate('/login')} />
       <div className="container" style={{ marginTop: '40px', maxWidth: '600px' }}>
-        <h2>Posting Pekerjaan Baru</h2>
+        <h2>Minta Bantuan Baru</h2>
         {error && <div className="error-message">{error}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Jenis Pekerjaan</label>
+            <label>Jenis Bantuan</label>
             <select name="jobType" value={formData.jobType} onChange={handleChange} required>
-              <option value="">Pilih jenis pekerjaan</option>
+              <option value="">Pilih jenis bantuan</option>
               {JOB_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
             </select>
           </div>
@@ -61,12 +61,12 @@ export default function PostJob({ user }) {
           </div>
 
           <div className="form-group">
-            <label>Deskripsi Pekerjaan</label>
-            <textarea name="description" value={formData.description} onChange={handleChange} placeholder="Jelaskan apa yang perlu diperbaiki/dibuat..." rows="5" required />
+            <label>Deskripsi Bantuan</label>
+            <textarea name="description" value={formData.description} onChange={handleChange} placeholder="Jelaskan bantuan yang kamu butuhkan..." rows="5" required />
           </div>
 
           <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%' }}>
-            {loading ? 'Posting...' : 'Post Pekerjaan'}
+            {loading ? 'Mengirim...' : 'Kirim Permintaan'}
           </button>
         </form>
       </div>
