@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getAvailableJobs } from '../lib/supabase'
 import Header from '../components/Header'
 import JobCard from '../components/JobCard'
+import TrustStrip from '../components/TrustStrip'
 
 export default function JobBoard({ user }) {
   const navigate = useNavigate()
@@ -30,6 +31,8 @@ export default function JobBoard({ user }) {
         <p style={{ color: '#666', marginBottom: '20px' }}>
           Pilih pekerjaan yang sesuai dengan keahlian Anda
         </p>
+
+        <TrustStrip variant="band" />
 
         {loading ? (
           <p>Loading...</p>
