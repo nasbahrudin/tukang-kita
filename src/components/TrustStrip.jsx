@@ -1,12 +1,20 @@
-export default function TrustStrip({ variant = 'band' }) {
+export default function TrustStrip({ variant = 'band', role = 'customer' }) {
+  const isTukang = role === 'tukang'
+
+  // The first signal swaps by role; the rest are shared.
+  // Tukang sees a difficulty-protection signal (honest today via the WhatsApp dispute line),
+  // NOT a customer rating — that comes later once two-sided ratings exist.
+  const firstSignal = isTukang
+    ? { icon: 'shield', title: 'Ada masalah? Tim kami bantu', sub: 'Kami dukung kamu kalau ada pelanggan sulit' }
+    : { icon: 'shield', title: 'Tukang terverifikasi', sub: 'Diperiksa admin sebelum aktif' }
+
   const signals = [
+    firstSignal,
     { icon: 'discount', title: '0% komisi untuk tukang', sub: 'Tukang terima penuh hasil kerjanya' },
-    { icon: 'shield', title: 'Tukang terverifikasi', sub: 'Diperiksa admin sebelum aktif' },
     { icon: 'whatsapp', title: 'Bantuan WhatsApp', sub: 'Ada orang asli yang bantu kamu' },
     { icon: 'pin', title: 'Dibuat untuk Batam', sub: 'Fokus melayani warga Batam dulu' },
   ]
 
-  // simple inline SVG icons so there's no icon-library dependency
   const Icon = ({ name }) => {
     const common = { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }
     if (name === 'discount') return <svg {...common}><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="15" x2="15.01" y2="15"/><line x1="16" y1="8" x2="8" y2="16"/><circle cx="12" cy="12" r="10"/></svg>
@@ -36,14 +44,4 @@ export default function TrustStrip({ variant = 'band' }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', margin: '0 0 16px' }}>
       {signals.map((s) => (
-        <div key={s.title} style={{ border: '0.5px solid #e5e2da', borderRadius: '10px', padding: '12px', background: '#fff' }}>
-          <div style={{ width: '34px', height: '34px', borderRadius: '8px', background: '#FBEAF0', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px', color: 'var(--brand)' }}>
-            <Icon name={s.icon} />
-          </div>
-          <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '2px' }}>{s.title}</div>
-          <div style={{ fontSize: '11px', color: '#666', lineHeight: 1.4 }}>{s.sub}</div>
-        </div>
-      ))}
-    </div>
-  )
-}
+        <div key={s.title} style={{ border: '0.5px solid #e5e2da', borderRadius: '10px', padding: '12px',

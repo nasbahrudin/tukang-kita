@@ -32,7 +32,7 @@ export default function JobBoard({ user }) {
           Pilih pekerjaan yang sesuai dengan keahlian Anda
         </p>
 
-        <TrustStrip variant="band" />
+        <TrustStrip variant="band" role={user?.role} />
 
         {loading ? (
           <p>Loading...</p>

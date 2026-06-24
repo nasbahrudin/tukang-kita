@@ -26,7 +26,7 @@ export default function Dashboard({ user }) {
             Tim kami akan memverifikasi dalam waktu 24 jam.
           </p>
           <div style={{ marginTop: '24px' }}>
-            <TrustStrip variant="grid" />
+            <TrustStrip variant="grid" role={user?.role} />
           </div>
         </div>
       </div>
