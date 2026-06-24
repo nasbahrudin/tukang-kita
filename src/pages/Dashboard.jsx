@@ -81,7 +81,7 @@ export default function Dashboard({ user }) {
           {greeting}
         </p>
 
-        <TrustStrip variant="grid" />
+        <TrustStrip variant="grid" role={user?.role} />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {cards.map((card) => (
