@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Header from '../components/Header'
+import TrustStrip from '../components/TrustStrip'
 
 export default function Dashboard({ user }) {
   const navigate = useNavigate()
@@ -24,6 +25,9 @@ export default function Dashboard({ user }) {
           <p style={{ marginTop: '12px', color: '#888', fontSize: '13px' }}>
             Tim kami akan memverifikasi dalam waktu 24 jam.
           </p>
+          <div style={{ marginTop: '24px' }}>
+            <TrustStrip variant="grid" />
+          </div>
         </div>
       </div>
     )
@@ -76,6 +80,8 @@ export default function Dashboard({ user }) {
         <p style={{ color: '#666', fontSize: '14px', marginBottom: '20px' }}>
           {greeting}
         </p>
+
+        <TrustStrip variant="grid" />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {cards.map((card) => (
