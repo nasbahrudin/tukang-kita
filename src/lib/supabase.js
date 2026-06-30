@@ -127,6 +127,13 @@ export const getAvailableJobs = async () => {
     // out, labelled "Diterima oleh [nama]" — so the feed reads as alive.
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
+    // Expired jobs (needed-date already passed) should NOT be acceptable.
+    // End-of-day logic: a job needed "30 Jun" stays valid all of 30 Jun,
+    // so we compare against the start of today (midnight).
+    const startOfToday = new Date()
+    startOfToday.setHours(0, 0, 0, 0)
+    const startOfTodayStr = startOfToday.toISOString().slice(0, 10)
+
     const { data, error } = await supabase
       .from('bookings')
       .select(`
@@ -140,6 +147,7 @@ export const getAvailableJobs = async () => {
       `)
       .in('status', ['available', 'accepted'])
       .gte('created_at', sevenDaysAgo)
+      .gte('date_needed', startOfTodayStr)
       .order('created_at', { ascending: false })
 
     if (error) throw error
