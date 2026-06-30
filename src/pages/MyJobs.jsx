@@ -75,6 +75,10 @@ export default function MyJobs({ user }) {
   const isExpired = (job) => {
     if (!job.date_needed) return false
     if (job.status === 'accepted' || job.status === 'completed') return false
+    // A job someone has already accepted is NOT expired, even if its status
+    // is still 'available' (e.g. multi-tukang job with one slot filled).
+    // "Someone is on it" always beats "the date passed".
+    if ((job.assignments || []).length > 0) return false
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const needed = new Date(job.date_needed)
@@ -131,8 +135,10 @@ export default function MyJobs({ user }) {
             {jobs.map(job => {
               const expired = isCustomer && isExpired(job)
               const tukangName = firstTukangName(job)
-              const accepted = job.status === 'accepted'
               const completed = job.status === 'completed'
+              // "Accepted" for display = status is accepted OR a tukang has
+              // taken a slot (multi-tukang job still 'available' in the DB).
+              const accepted = !completed && (job.status === 'accepted' || !!tukangName)
 
               // Decide the status pill (label, bg, text color)
               let pill = { label: 'Menunggu tukang', bg: '#f1efe8', color: '#5f5e5a', icon: '🕓' }
@@ -191,7 +197,7 @@ export default function MyJobs({ user }) {
                   )}
 
                   <div style={{ marginTop: '16px' }}>
-                    {accepted && (
+                    {job.status === 'accepted' && (
                       <button className="btn btn-primary" onClick={() => setShowDeliveryOrder(job.id)}>
                         Tandai Selesai
                       </button>
