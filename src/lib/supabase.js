@@ -120,6 +120,24 @@ export const postJob = async (customerId, jobType, address, dateNeeded, descript
   }
 }
 
+export const cancelJob = async (bookingId) => {
+  try {
+    // Soft cancel: keep the row, set status to 'cancelled'. The row stays
+    // for records/metrics; every view filters 'cancelled' out. We never
+    // hard-delete. Only call this for jobs no tukang has accepted —
+    // accepted jobs go through the admin (WhatsApp) instead, for fairness.
+    const { error } = await supabase
+      .from('bookings')
+      .update({ status: 'cancelled' })
+      .eq('id', bookingId)
+
+    if (error) throw error
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+}
+
 export const getAvailableJobs = async () => {
   try {
     // FEED WINDOW: jobs posted in the last 14 days stay in Loker. At soft

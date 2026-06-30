@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase, confirmJobComplete } from '../lib/supabase'
+import { supabase, confirmJobComplete, cancelJob } from '../lib/supabase'
 import Header from '../components/Header'
 import DeliveryOrder from '../components/DeliveryOrder'
 import RatingForm from '../components/RatingForm'
@@ -11,6 +11,9 @@ export default function MyJobs({ user }) {
   const [loading, setLoading] = useState(true)
   const [showDeliveryOrder, setShowDeliveryOrder] = useState(null)
   const [showRatingForm, setShowRatingForm] = useState(null)
+  const [confirmingCancel, setConfirmingCancel] = useState(null)
+
+  const ADMIN_WA = '6281222145633'
 
   const isCustomer = user?.role === 'customer'
 
@@ -35,6 +38,7 @@ export default function MyJobs({ user }) {
           )
         `)
         .eq('customer_id', user.id)
+        .neq('status', 'cancelled')
         .order('created_at', { ascending: false })
       data = result.data || []
     } else {
@@ -68,6 +72,24 @@ export default function MyJobs({ user }) {
     await loadMyJobs()
     setShowDeliveryOrder(null)
     setShowRatingForm(jobId)
+  }
+
+  const handleCancel = async (jobId) => {
+    const result = await cancelJob(jobId)
+    setConfirmingCancel(null)
+    if (result.success) {
+      await loadMyJobs()
+    } else {
+      alert('Gagal membatalkan: ' + result.error)
+    }
+  }
+
+  const contactAdminToCancel = (job) => {
+    const msg = encodeURIComponent(
+      `Halo Admin Tukang Kita. Saya ${user?.name || 'pelanggan'} ingin membatalkan ` +
+      `bantuan "${job.job_type}" yang sudah diterima tukang. Mohon bantuannya.`
+    )
+    window.open(`https://wa.me/${ADMIN_WA}?text=${msg}`, '_blank')
   }
 
   // --- helpers ------------------------------------------------------------
@@ -181,6 +203,68 @@ export default function MyJobs({ user }) {
             <button className="btn btn-secondary" onClick={() => setShowRatingForm(job.id)}>
               Beri Rating
             </button>
+          )}
+
+          {/* Cancel flow — only for jobs not completed */}
+          {!completed && (
+            <>
+              {/* Not taken yet → customer can cancel freely */}
+              {!tukangName && job.status !== 'accepted' && (
+                confirmingCancel === job.id ? (
+                  <div style={{
+                    marginTop: '10px', padding: '12px',
+                    background: '#fceaea', borderRadius: '8px'
+                  }}>
+                    <div style={{ fontSize: '13px', color: '#a32d2d', marginBottom: '10px' }}>
+                      Yakin mau batalkan bantuan ini? Bantuan akan hilang dari daftar dan Loker.
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        className="btn"
+                        style={{ flex: 1, background: '#a32d2d', color: 'white', border: 'none' }}
+                        onClick={() => handleCancel(job.id)}
+                      >
+                        Ya, batalkan
+                      </button>
+                      <button
+                        className="btn btn-gray"
+                        style={{ flex: 1 }}
+                        onClick={() => setConfirmingCancel(null)}
+                      >
+                        Tidak
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    className="btn"
+                    style={{
+                      width: '100%', marginTop: '8px',
+                      color: '#a32d2d', borderColor: '#f09595', background: 'white'
+                    }}
+                    onClick={() => setConfirmingCancel(job.id)}
+                  >
+                    🗑️ Batalkan
+                  </button>
+                )
+              )}
+
+              {/* Already taken → must go through admin (fairness to tukang) */}
+              {(tukangName || job.status === 'accepted') && (
+                <>
+                  <button
+                    className="btn btn-gray"
+                    style={{ width: '100%', marginTop: '8px' }}
+                    onClick={() => contactAdminToCancel(job)}
+                  >
+                    💬 Hubungi admin untuk batalkan
+                  </button>
+                  <p style={{ marginTop: '8px', fontSize: '11px', color: '#999' }}>
+                    Tukang sudah menerima, jadi pembatalan lewat admin agar adil untuk tukang.
+                  </p>
+                </>
+              )}
+            </>
           )}
         </div>
       </div>
