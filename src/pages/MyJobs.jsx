@@ -194,7 +194,7 @@ export default function MyJobs({ user }) {
         )}
 
         <div style={{ marginTop: '16px' }}>
-          {job.status === 'accepted' && (
+          {accepted && (
             <button className="btn btn-primary" onClick={() => setShowDeliveryOrder(job.id)}>
               Tandai Selesai
             </button>
