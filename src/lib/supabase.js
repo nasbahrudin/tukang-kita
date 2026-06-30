@@ -355,4 +355,17 @@ export const getUserRating = async (userId) => {
   }
 }
 
+export const getRecentActivity = async () => {
+  try {
+    // Calls the SECURITY DEFINER function recent_activity(), which returns
+    // ONLY sanitized, seed-only social proof (job type, area, first name,
+    // days_ago) — no addresses, phones, or real customer data.
+    const { data, error } = await supabase.rpc('recent_activity')
+    if (error) throw error
+    return { success: true, activity: data || [] }
+  } catch (error) {
+    return { success: false, activity: [], error: error.message }
+  }
+}
+
 export default supabase

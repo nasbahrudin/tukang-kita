@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Header from '../components/Header'
 import TrustStrip from '../components/TrustStrip'
+import RecentActivity from '../components/RecentActivity'
 
 export default function Dashboard({ user }) {
   const navigate = useNavigate()
@@ -43,13 +44,13 @@ export default function Dashboard({ user }) {
 
   const cards = isTukang
     ? [
-        { title: 'Cari Pekerjaan (Loker)', desc: 'Lihat pekerjaan tersedia di dekat kamu', to: '/loker', primary: true },
-        { title: 'Pekerjaan Saya', desc: 'Pekerjaan yang kamu terima', to: '/my-jobs', primary: false },
-      ]
+      { title: 'Cari Pekerjaan (Loker)', desc: 'Lihat pekerjaan tersedia di dekat kamu', to: '/loker', primary: true },
+      { title: 'Pekerjaan Saya', desc: 'Pekerjaan yang kamu terima', to: '/my-jobs', primary: false },
+    ]
     : [
-        { title: 'Minta Bantuan Baru', desc: 'Pasang permintaan, orang siap membantu kamu', to: '/post-job', primary: true },
-        { title: 'Bantuan Saya', desc: 'Pantau status permintaan kamu', to: '/my-jobs', primary: false },
-      ]
+      { title: 'Minta Bantuan Baru', desc: 'Pasang permintaan, orang siap membantu kamu', to: '/post-job', primary: true },
+      { title: 'Bantuan Saya', desc: 'Pantau status permintaan kamu', to: '/my-jobs', primary: false },
+    ]
 
   return (
     <div>
@@ -112,6 +113,10 @@ export default function Dashboard({ user }) {
               <div style={{ color: '#bbb', fontSize: '20px' }}>›</div>
             </div>
           ))}
+        </div>
+
+        <div style={{ marginTop: '20px' }}>
+          <RecentActivity />
         </div>
 
       </div>
