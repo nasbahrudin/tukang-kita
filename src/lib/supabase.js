@@ -122,17 +122,19 @@ export const postJob = async (customerId, jobType, address, dateNeeded, descript
 
 export const getAvailableJobs = async () => {
   try {
-    // Show jobs that are still open ('available') PLUS jobs taken in the
-    // last 7 days ('accepted'). Taken jobs stay visible in Loker — greyed
-    // out, labelled "Diterima oleh [nama]" — so the feed reads as alive.
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    // FEED WINDOW: jobs posted in the last 14 days stay in Loker. At soft
+    // launch this keeps the feed lively (incl. seeded "already transacted"
+    // jobs as social proof). Tighten back to 7 once real activity exists.
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
 
-    // Expired jobs (needed-date already passed) should NOT be acceptable.
-    // End-of-day logic: a job needed "30 Jun" stays valid all of 30 Jun,
-    // so we compare against the start of today (midnight).
+    // Pull the candidate set on the cheap server-side filters, then apply the
+    // "hide dead jobs" rule in JS so we can express it as:
+    //   show if (needed-date NOT passed) OR (someone has accepted it)
+    // i.e. an untaken job whose date has passed is dead noise and hidden,
+    // but a TAKEN job stays visible (greyed) even after its date — that's
+    // the "look, jobs are getting done" social proof.
     const startOfToday = new Date()
     startOfToday.setHours(0, 0, 0, 0)
-    const startOfTodayStr = startOfToday.toISOString().slice(0, 10)
 
     const { data, error } = await supabase
       .from('bookings')
@@ -146,12 +148,22 @@ export const getAvailableJobs = async () => {
         )
       `)
       .in('status', ['available', 'accepted'])
-      .gte('created_at', sevenDaysAgo)
-      .gte('date_needed', startOfTodayStr)
+      .gte('created_at', fourteenDaysAgo)
       .order('created_at', { ascending: false })
 
     if (error) throw error
-    return { success: true, jobs: data }
+
+    const visible = (data || []).filter(job => {
+      const taken = (job.assignments || []).length > 0 || job.status === 'accepted'
+      if (taken) return true
+      // untaken: only show if its needed-date hasn't passed
+      if (!job.date_needed) return true
+      const needed = new Date(job.date_needed)
+      needed.setHours(0, 0, 0, 0)
+      return needed >= startOfToday
+    })
+
+    return { success: true, jobs: visible }
   } catch (error) {
     return { success: false, error: error.message }
   }
