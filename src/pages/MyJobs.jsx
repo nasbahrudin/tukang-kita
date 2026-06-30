@@ -45,9 +45,14 @@ export default function MyJobs({ user }) {
 
       const bookingIds = assignments?.map(a => a.booking_id) || []
       if (bookingIds.length > 0) {
+        // Tukang needs to CONTACT and DO the job, so pull the customer's
+        // name + phone (from the users table via the customer_id join).
         const result = await supabase
           .from('bookings')
-          .select('*')
+          .select(`
+            *,
+            customer:customer_id(name, phone)
+          `)
           .in('id', bookingIds)
           .order('created_at', { ascending: false })
         data = result.data || []
@@ -70,14 +75,10 @@ export default function MyJobs({ user }) {
     d ? new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'
 
   // A job is expired if its needed-date is before TODAY (end-of-day logic:
-  // a job needed "30 Jun" stays valid for all of 30 Jun), and it has not
-  // been accepted or completed.
+  // a job needed "30 Jun" stays valid all of 30 Jun), and nobody has taken it.
   const isExpired = (job) => {
     if (!job.date_needed) return false
     if (job.status === 'accepted' || job.status === 'completed') return false
-    // A job someone has already accepted is NOT expired, even if its status
-    // is still 'available' (e.g. multi-tukang job with one slot filled).
-    // "Someone is on it" always beats "the date passed".
     if ((job.assignments || []).length > 0) return false
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -92,6 +93,205 @@ export default function MyJobs({ user }) {
       (x, y) => (x.sequence || 0) - (y.sequence || 0)
     )[0]
     return a?.tukang?.name
+  }
+
+  const openMaps = (address) => {
+    const q = encodeURIComponent(address || '')
+    window.open(`https://www.google.com/maps/search/?api=1&query=${q}`, '_blank')
+  }
+
+  const openWhatsApp = (job) => {
+    const phone = job.customer?.phone
+    if (!phone) return
+    const msg = encodeURIComponent(
+      `Halo, saya ${user?.name || 'tukang'} dari Tukang Kita. ` +
+      `Saya menerima pekerjaan "${job.job_type}" Anda. Boleh kita atur waktunya?`
+    )
+    window.open(`https://wa.me/${phone}?text=${msg}`, '_blank')
+  }
+
+  // ========================================================================
+  // CUSTOMER CARD
+  // ========================================================================
+  const renderCustomerCard = (job) => {
+    const expired = isExpired(job)
+    const tukangName = firstTukangName(job)
+    const completed = job.status === 'completed'
+    const accepted = !completed && (job.status === 'accepted' || !!tukangName)
+
+    let pill = { label: 'Menunggu tukang', bg: '#f1efe8', color: '#5f5e5a', icon: '🕓' }
+    if (completed) pill = { label: 'Selesai', bg: '#f4c0d1', color: '#72243e', icon: '✓' }
+    else if (accepted) pill = { label: 'Diterima', bg: '#e1f5ee', color: '#0f6e56', icon: '👷' }
+    else if (expired) pill = { label: 'Kadaluarsa', bg: '#fceaea', color: '#a32d2d', icon: '⚠️' }
+
+    return (
+      <div key={job.id} className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+          <div style={{ minWidth: 0 }}>
+            <h3>{job.job_type}</h3>
+            <p style={{ color: '#666', marginTop: '4px' }}>{job.address}</p>
+          </div>
+          <div style={{ flexShrink: 0 }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: '5px',
+              padding: '6px 12px', backgroundColor: pill.bg, color: pill.color,
+              borderRadius: '20px', fontSize: '12px', fontWeight: '500'
+            }}>
+              <span>{pill.icon}</span> {pill.label}
+            </span>
+          </div>
+        </div>
+
+        <div style={{
+          display: 'flex', gap: '20px', marginTop: '12px', paddingTop: '12px',
+          borderTop: '1px solid #eee', fontSize: '13px'
+        }}>
+          <div>
+            <div style={{ color: '#999', fontSize: '11px' }}>Diposting</div>
+            <div style={{ color: '#666' }}>{formatDate(job.created_at)}</div>
+          </div>
+          <div>
+            <div style={{ color: '#999', fontSize: '11px' }}>Dibutuhkan</div>
+            <div style={{ color: expired ? '#a32d2d' : '#666' }}>{formatDate(job.date_needed)}</div>
+          </div>
+        </div>
+
+        {tukangName && !completed && (
+          <div style={{
+            marginTop: '12px', padding: '8px 12px', background: '#faf9f6',
+            borderRadius: '8px', fontSize: '13px', color: '#666'
+          }}>
+            🔧 Dikerjakan oleh <strong style={{ color: '#333' }}>{tukangName}</strong>
+          </div>
+        )}
+
+        {expired && (
+          <p style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
+            Tanggal sudah lewat. Posting ulang jika masih perlu.
+          </p>
+        )}
+
+        <div style={{ marginTop: '16px' }}>
+          {job.status === 'accepted' && (
+            <button className="btn btn-primary" onClick={() => setShowDeliveryOrder(job.id)}>
+              Tandai Selesai
+            </button>
+          )}
+          {completed && (
+            <button className="btn btn-secondary" onClick={() => setShowRatingForm(job.id)}>
+              Beri Rating
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // ========================================================================
+  // TUKANG CARD
+  // ========================================================================
+  const renderTukangCard = (job) => {
+    const completed = job.status === 'completed'
+    const customerName = job.customer?.name || 'Pelanggan'
+    const customerPhone = job.customer?.phone
+    const initial = customerName.charAt(0).toUpperCase()
+
+    let pill = { label: 'Sedang dikerjakan', bg: '#e1f5ee', color: '#0f6e56', icon: '🔧' }
+    if (completed) pill = { label: 'Selesai', bg: '#f4c0d1', color: '#72243e', icon: '✓' }
+
+    return (
+      <div key={job.id} className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'flex-start' }}>
+          <h3 style={{ margin: 0 }}>{job.job_type}</h3>
+          <span style={{
+            flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: '5px',
+            padding: '6px 12px', backgroundColor: pill.bg, color: pill.color,
+            borderRadius: '20px', fontSize: '12px', fontWeight: '500'
+          }}>
+            <span>{pill.icon}</span> {pill.label}
+          </span>
+        </div>
+
+        {/* Customer block */}
+        <div style={{
+          marginTop: '12px', padding: '10px 12px', background: '#faf9f6',
+          borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px'
+        }}>
+          <div style={{
+            width: '36px', height: '36px', borderRadius: '50%',
+            background: 'var(--brand-tint, #f4e6eb)', color: 'var(--brand, #72243E)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontWeight: '600', fontSize: '14px', flexShrink: 0
+          }}>{initial}</div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: '11px', color: '#999' }}>Pelanggan</div>
+            <div style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>{customerName}</div>
+          </div>
+        </div>
+
+        {/* Address */}
+        <div style={{ display: 'flex', gap: '6px', marginTop: '12px', fontSize: '14px', color: '#555' }}>
+          <span style={{ flexShrink: 0 }}>📍</span>
+          <span style={{ whiteSpace: 'pre-line' }}>{job.address || 'Alamat belum diisi'}</span>
+        </div>
+
+        {/* Job description */}
+        {job.description && (
+          <div style={{ marginTop: '10px', fontSize: '14px', color: '#555' }}>
+            <div style={{ fontSize: '11px', color: '#999' }}>Pekerjaan</div>
+            {job.description}
+          </div>
+        )}
+
+        {/* Needed date */}
+        <div style={{ marginTop: '10px', fontSize: '13px' }}>
+          <div style={{ fontSize: '11px', color: '#999' }}>Dibutuhkan</div>
+          <div style={{ color: '#666' }}>{formatDate(job.date_needed)}</div>
+        </div>
+
+        {/* Actions */}
+        {!completed && (
+          <>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+              {customerPhone && (
+                <button
+                  className="btn"
+                  style={{
+                    flex: 1, background: '#0f6e56', color: 'white', border: 'none',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                  }}
+                  onClick={() => openWhatsApp(job)}
+                >
+                  💬 Hubungi Pelanggan
+                </button>
+              )}
+              {job.address && (
+                <button className="btn btn-gray" style={{ flexShrink: 0 }} onClick={() => openMaps(job.address)}>
+                  📍 Maps
+                </button>
+              )}
+            </div>
+            <div style={{ marginTop: '8px' }}>
+              <button
+                className="btn btn-primary"
+                style={{ width: '100%' }}
+                onClick={() => setShowDeliveryOrder(job.id)}
+              >
+                Tandai Selesai
+              </button>
+            </div>
+          </>
+        )}
+
+        {completed && (
+          <div style={{ marginTop: '16px' }}>
+            <button className="btn btn-secondary" onClick={() => setShowRatingForm(job.id)}>
+              Beri Rating
+            </button>
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -132,85 +332,7 @@ export default function MyJobs({ user }) {
           </div>
         ) : (
           <div>
-            {jobs.map(job => {
-              const expired = isCustomer && isExpired(job)
-              const tukangName = firstTukangName(job)
-              const completed = job.status === 'completed'
-              // "Accepted" for display = status is accepted OR a tukang has
-              // taken a slot (multi-tukang job still 'available' in the DB).
-              const accepted = !completed && (job.status === 'accepted' || !!tukangName)
-
-              // Decide the status pill (label, bg, text color)
-              let pill = { label: 'Menunggu tukang', bg: '#f1efe8', color: '#5f5e5a', icon: '🕓' }
-              if (completed) pill = { label: 'Selesai', bg: '#f4c0d1', color: '#72243e', icon: '✓' }
-              else if (accepted) pill = { label: 'Diterima', bg: '#e1f5ee', color: '#0f6e56', icon: '👷' }
-              else if (expired) pill = { label: 'Kadaluarsa', bg: '#fceaea', color: '#a32d2d', icon: '⚠️' }
-
-              return (
-                <div key={job.id} className="card">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-                    <div style={{ minWidth: 0 }}>
-                      <h3>{job.job_type}</h3>
-                      <p style={{ color: '#666', marginTop: '4px' }}>{job.address}</p>
-                    </div>
-                    <div style={{ flexShrink: 0 }}>
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', gap: '5px',
-                        padding: '6px 12px', backgroundColor: pill.bg, color: pill.color,
-                        borderRadius: '20px', fontSize: '12px', fontWeight: '500'
-                      }}>
-                        <span>{pill.icon}</span> {pill.label}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Two dates: posted + needed */}
-                  <div style={{
-                    display: 'flex', gap: '20px', marginTop: '12px', paddingTop: '12px',
-                    borderTop: '1px solid #eee', fontSize: '13px'
-                  }}>
-                    <div>
-                      <div style={{ color: '#999', fontSize: '11px' }}>Diposting</div>
-                      <div style={{ color: '#666' }}>{formatDate(job.created_at)}</div>
-                    </div>
-                    <div>
-                      <div style={{ color: '#999', fontSize: '11px' }}>Dibutuhkan</div>
-                      <div style={{ color: expired ? '#a32d2d' : '#666' }}>{formatDate(job.date_needed)}</div>
-                    </div>
-                  </div>
-
-                  {/* Who accepted it */}
-                  {tukangName && !completed && (
-                    <div style={{
-                      marginTop: '12px', padding: '8px 12px', background: '#faf9f6',
-                      borderRadius: '8px', fontSize: '13px', color: '#666'
-                    }}>
-                      🔧 Dikerjakan oleh <strong style={{ color: '#333' }}>{tukangName}</strong>
-                    </div>
-                  )}
-
-                  {/* Expired nudge */}
-                  {expired && (
-                    <p style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
-                      Tanggal sudah lewat. Posting ulang jika masih perlu.
-                    </p>
-                  )}
-
-                  <div style={{ marginTop: '16px' }}>
-                    {job.status === 'accepted' && (
-                      <button className="btn btn-primary" onClick={() => setShowDeliveryOrder(job.id)}>
-                        Tandai Selesai
-                      </button>
-                    )}
-                    {completed && (
-                      <button className="btn btn-secondary" onClick={() => setShowRatingForm(job.id)}>
-                        Beri Rating
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+            {jobs.map(job => isCustomer ? renderCustomerCard(job) : renderTukangCard(job))}
           </div>
         )}
 
