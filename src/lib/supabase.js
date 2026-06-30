@@ -122,13 +122,24 @@ export const postJob = async (customerId, jobType, address, dateNeeded, descript
 
 export const getAvailableJobs = async () => {
   try {
+    // Show jobs that are still open ('available') PLUS jobs taken in the
+    // last 7 days ('accepted'). Taken jobs stay visible in Loker — greyed
+    // out, labelled "Diterima oleh [nama]" — so the feed reads as alive.
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
     const { data, error } = await supabase
       .from('bookings')
       .select(`
         *,
-        customer:customer_id(name, phone, verified)
+        customer:customer_id(name, phone, verified),
+        assignments:job_assignments(
+          sequence,
+          accepted_at,
+          tukang:tukang_id(name)
+        )
       `)
-      .eq('status', 'available')
+      .in('status', ['available', 'accepted'])
+      .gte('created_at', sevenDaysAgo)
       .order('created_at', { ascending: false })
 
     if (error) throw error
