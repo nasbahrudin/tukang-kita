@@ -220,7 +220,12 @@ export const acceptJob = async (bookingId, tukangId) => {
       return { success: false, error: 'Pekerjaan ini sudah penuh.' }
     }
 
-    // 3. Insert this tukang's assignment with the next sequence number
+    // 3. Insert this tukang's assignment with the next sequence number.
+    //    A UNIQUE(booking_id, sequence) constraint guards against the
+    //    acceptance race: if two tukang both compute sequence=1 at the same
+    //    instant, the DB lets the first insert win and rejects the second
+    //    with a unique-violation (Postgres code 23505). We catch that and
+    //    return a clean message rather than a raw DB error.
     const { data: assignment, error: assignError } = await supabase
       .from('job_assignments')
       .insert({
@@ -231,7 +236,13 @@ export const acceptJob = async (bookingId, tukangId) => {
       })
       .select()
 
-    if (assignError) throw assignError
+    if (assignError) {
+      if (assignError.code === '23505') {
+        // Someone else grabbed this slot a split second earlier.
+        return { success: false, error: 'Pekerjaan ini baru saja diambil tukang lain.' }
+      }
+      throw assignError
+    }
 
     // 4. Only close the job when slots are now full
     const newCount = currentCount + 1
