@@ -9,8 +9,28 @@ export default function JobCard({ job, onClick }) {
     window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank')
   }
 
+  // --- Acceptance state ---------------------------------------------------
+  // job.assignments comes from getAvailableJobs (job_assignments join).
+  // Each entry: { sequence, accepted_at, tukang: { name } }
+  const assignments = job.assignments || []
+  const acceptedCount = assignments.length
+  const tukangNeeded = job.tukang_needed || 1
+
+  // Name of the first tukang who accepted (sorted by sequence, lowest first)
+  const firstTukang = [...assignments].sort(
+    (a, b) => (a.sequence || 0) - (b.sequence || 0)
+  )[0]
+  const firstTukangName = firstTukang?.tukang?.name
+
+  const isTaken = acceptedCount > 0
+  const isFull = job.status === 'accepted' || acceptedCount >= tukangNeeded
+  const slotsLeft = Math.max(tukangNeeded - acceptedCount, 0)
+
+  // --- Styles for the three states ---------------------------------------
+  const cardStyle = isFull ? { opacity: 0.6 } : undefined
+
   return (
-    <div className="job-card" onClick={onClick}>
+    <div className="job-card" onClick={isFull ? undefined : onClick} style={cardStyle}>
       <div className="job-card-header">
         <div>
           <div className="job-type">{job.job_type}</div>
@@ -31,8 +51,31 @@ export default function JobCard({ job, onClick }) {
         {truncateText(job.description, 100)}
       </div>
 
+      {/* Acceptance indicator */}
+      {isTaken && (
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            marginTop: '10px',
+            padding: '4px 10px',
+            borderRadius: '999px',
+            fontSize: '12px',
+            background: isFull ? '#f1efe8' : '#e1f5ee',
+            color: isFull ? '#5f5e5a' : '#0f6e56',
+          }}
+        >
+          <span>{isFull ? '✓' : '👷'}</span>
+          <span>
+            Diterima oleh {firstTukangName || 'tukang'}
+            {!isFull && slotsLeft > 0 ? ` · butuh ${slotsLeft} lagi` : ''}
+          </span>
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-        {job.address && (
+        {job.address && !isFull && (
           <button
             className="btn btn-gray"
             style={{ flexShrink: 0 }}
@@ -41,9 +84,15 @@ export default function JobCard({ job, onClick }) {
             📍 Buka di Maps
           </button>
         )}
-        <button className="btn btn-primary" style={{ flex: 1 }}>
-          Lihat Detail
-        </button>
+        {isFull ? (
+          <button className="btn btn-gray" style={{ flex: 1 }} disabled>
+            Sudah Diambil
+          </button>
+        ) : (
+          <button className="btn btn-primary" style={{ flex: 1 }}>
+            Lihat Detail
+          </button>
+        )}
       </div>
     </div>
   )
